@@ -5,6 +5,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from sklearn.metrics import roc_curve, auc
+import matplotlib.gridspec as gridspec
 
 import atlas_mpl_style as ampl
 ampl.use_atlas_style()
@@ -174,6 +175,7 @@ def make_plot(items, figfile = '',
     if figfile != '':
         plt.savefig(figfile)
     plt.show()
+ 
     
 def drawLabels(fig, atlas_x=-1, atlas_y=-1, simulation=False,
                textlist=[]):
@@ -185,7 +187,20 @@ def drawLabels(fig, atlas_x=-1, atlas_y=-1, simulation=False,
             textdict['x'], textdict['y'], textdict['text'], 
             transform=fig.axes[0].transAxes, fontsize=18)
 
+def drawLabels_cnn_dev(fig, atlas_x=-1, atlas_y=-1, simulation=False, 
+               textlist=[],color='black', desc='', bbox = {}, ax = None, atlas_status='Internal'):
+    if atlas_x >= 0 and atlas_y >= 0:
+        if len(bbox) > 0:
+            ampl.draw_atlas_label(atlas_x, atlas_y, status = atlas_status, ax = ax, simulation=simulation, fontsize=18, color=color, bbox=bbox, desc=desc)
+        else:
+            ampl.draw_atlas_label(atlas_x, atlas_y, status = atlas_status, ax = ax, simulation=simulation, fontsize=18, color=color, desc=desc)
 
+    for textdict in textlist:
+        fig.axes[0].text(
+            textdict['x'], textdict['y'], textdict['text'], 
+            transform=fig.axes[0].transAxes, fontsize=18,color=color)
+
+        
 display_digits = 2
 
 
@@ -297,3 +312,120 @@ def buildRocs(varlist, scan_targets, labels, ylabels, data):
                 rocs[target_label + label] = {'x': x, 'y': y}
 
     return rocs
+
+def roc_plot_scores(scores, ylabels, data, figfile='',
+             x_label='False positive rate',
+             y_label='True positive rate',
+             x_min=0, x_max=1.1, x_log=False,
+             y_min=0, y_max=1.1, y_log=False,
+             linestyles=[], colorgrouping=-1,
+             extra_lines=[], labels=[], rejection = False,
+             atlas_x=-1, atlas_y=-1, simulation=False, atlas_status = 'Internal',
+             textlist=[], title=''):
+    plt.cla()
+    plt.clf()
+
+    fig = plt.figure(figsize=(10,10))
+    fig.patch.set_facecolor('white')
+
+    gs = gridspec.GridSpec(ncols=1,nrows=2, height_ratios = [3,1], width_ratios = [1])
+    ax1 = fig.add_subplot(gs[0,0])
+    ax2 = fig.add_subplot(gs[1,0], sharex = ax1)
+    for extra_line in extra_lines:
+        ax1.plot(extra_line[0], extra_line[1], linestyle='--', color='black')
+
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+    rocs = buildRocsScore(scores, ylabels, labels, data)
+    
+    ratxs = {}
+    ratys = {}
+    for i, roc in enumerate(rocs):
+        x = rocs[roc]['x']
+        y = rocs[roc]['y']
+        ratx, raty = build_ratio(rocs['$\mathcal{P}^{EM}_{clus}$']['x'], rocs['$\mathcal{P}^{EM}_{clus}$']['y'], x, y)
+        ratxs[i] = ratx
+        ratys[i] = raty
+        if len(linestyles) > 0:
+            linestyle = linestyles[i]
+        else:
+            linestyle = 'solid'
+        if colorgrouping > 0:
+            color = colors[int(np.floor((i+1) / colorgrouping))]
+        else:
+            color = colors[(i+1) % (len(colors)-1)]
+        label = None
+        if len(labels) > 0:
+            label = labels[i]
+        if not rejection:
+            ax1.plot(x, y, label=label, linestyle=linestyle, color=color, linewidth=3)
+        else:
+            ax1.plot(x, 1. / y, label=label, linestyle=linestyle, color=color, linewidth=3)
+
+    if x_log:
+        plt.xscale('log')
+    if y_log:
+        plt.yscale('log')
+        ax1.set_yscale('log')
+        ax2.set_yscale('linear')
+
+    #drawLabels(fig, atlas_x, atlas_y, simulation, textlist, ax = ax1, atlas_status = atlas_status)
+       
+    drawLabels(fig, atlas_x, atlas_y, simulation, textlist)
+    
+    ax1.legend(prop={'size': 14}, frameon=False)
+
+    if rejection:
+        ax2.set_ylim(0, 15)
+
+    plt.title(title)
+    ax1.set_xlim(x_min, x_max)
+    ax1.set_ylim(y_min, y_max)
+    ampl.set_xlabel(x_label, ax=ax1)
+    ampl.set_ylabel(y_label, ax=ax1)
+
+    ampl.set_ylabel('Ratio to $\mathcal{P}^{EM}_{clus}$', ax=ax2)
+
+    # plt.subplot(414)
+    for x, y in zip(ratxs, ratys):
+        # print(ratxs[x],ratys[y])
+        if colorgrouping > 0:
+            color = colors[int(np.floor((x+1) / colorgrouping))]
+        else:
+            color = colors[(x+1) % (len(colors)-1)]
+        if len(linestyles) > 0:
+            linestyle = linestyles[x]
+        else:
+            linestyle = 'solid'
+        ax2.plot(ratxs[x], ratys[y], color = color,linewidth=3,linestyle=linestyle)
+
+    if figfile != '':
+        plt.savefig(figfile)
+    plt.show()
+
+
+def buildRocsScore(scores, ylabels, labels, data):
+    rocs = {}
+    for score, label in zip(scores, labels):
+        y, x, t = roc_curve( # note y, x: fpr and tpr respectively, which we use as y and x
+            ylabels[data.test][:,1],
+            score[data.test],
+            drop_intermediate=False
+        )
+        rocs[label] = {'x': x, 'y': y}
+    print("ROC curve values: ", rocs)
+    return rocs
+
+
+def build_ratio(x1, y1, x2, y2):
+
+    if len(x1) == len(x2): # if they're the same length, it's easy
+        return x1, y2/y1
+
+    #otherwise, we assume x2/y2 are longer
+    # so we have to interpolate x1/y1 into the bigger format
+
+    y1_interp = np.interp(x2, x1, y1)
+
+    return x2, y1_interp / y2
+    
