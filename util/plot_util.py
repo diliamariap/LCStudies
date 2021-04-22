@@ -335,7 +335,7 @@ def roc_plot_scores(scores, ylabels, data, figfile='',
         ax1.plot(extra_line[0], extra_line[1], linestyle='--', color='black')
 
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-
+    
     rocs = buildRocsScore(scores, ylabels, labels, data)
     
     ratxs = {}
