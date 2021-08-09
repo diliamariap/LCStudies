@@ -158,7 +158,7 @@ firstArray = True
 X_large = np.lib.format.open_memmap('/data/atlas/dportill/X_large.npy', mode='w+', dtype=np.float64,
                        shape=(1200000,1500,6), fortran_order=False, version=None)
 Y_large = np.lib.format.open_memmap('/data/atlas/dportill/Y_large.npy', mode='w+', dtype=np.float64,
-                       shape=(1200000,3), fortran_order=False, version=None)
+                       shape=(1200000), fortran_order=False, version=None)
 
 ## For two files: Current size: (7497, 942, 6)
 #X_large = np.zeros(shape=(10000,2000,6), dtype=np.float64 )
@@ -191,10 +191,13 @@ for currFile in fileNames:
     event_tree = event["EventTree"]
     event_dict = dict_from_tree(tree=event_tree, branches=ak_event_branches, np_branches=np_event_branches)
 
+    Label = -1 # classification label. 1:pipm, 0:pi0
     if event_dict['mcChannelNumber'][0]== 900247:
         print("pipm file")
+        Label = 1
     elif event_dict['mcChannelNumber'][0]== 900246:
         print("pi0 file")
+        Label = 0
     else:
         print("Error: can not associate the MC channel number to a known process")
 
@@ -263,7 +266,7 @@ for currFile in fileNames:
 
 
     # Create arrays
-    Y_new = np.zeros((max_dims[0],3))
+    Y_new = np.zeros(max_dims[0])
     X_new = np.zeros(max_dims)
     t1 = t.time()
     find_create_max_dims_time = t1 - t0    
@@ -285,7 +288,7 @@ for currFile in fileNames:
         ##############
         # set up to have no clusters, further this with setting up the same thing for tracks
         target_ENG_CALIB_TOT = -1
-        if cluster_nums is not None:
+        if cluster_nums is not None and Label>=0:
 
             # find averaged center of clusters
             cluster_Eta = event_dict['cluster_Eta'][evt].to_numpy()
@@ -323,13 +326,11 @@ for currFile in fileNames:
                 nClust_current_total += nInClust
 
                 
-        #####################
-        ## TARGET ENERGIES ##
-        #####################
-        # this is needed for energy regression
-        Y_new[i,0] = event_dict['truthPartE'][evt][0]
-        Y_new[i,1] = event_dict['truthPartPt'][evt][track_idx]
-        Y_new[i,2] = target_ENG_CALIB_TOT
+        #######################
+        ## Classification labels ##
+        #######################
+        if Label>=0:
+            Y_new[i] = Label
 
     #####################################################
     t1 = t.time()
@@ -348,7 +349,7 @@ for currFile in fileNames:
     X_large[old_tot:tot_nEvts, max_dims[1]:1500, :] = np.zeros(fill_shape)
     
     # Write to Y
-    Y_large[old_tot:tot_nEvts,:] = np.ndarray.copy(Y_new)
+    Y_large[old_tot:tot_nEvts] = np.ndarray.copy(Y_new)
         
     t1 = t.time()
     time_to_memmap = t1-t0
@@ -383,8 +384,8 @@ del X_large
 os.system('rm /data/atlas/dportill/X_large.npy')
 
 Y = np.lib.format.open_memmap('/data/atlas/dportill/Y_'+str(Nfile)+'_files.npy',
-                             mode='w+', dtype=np.float64, shape=(tot_nEvts, 3))
-np.copyto(dst=Y, src=Y_large[:tot_nEvts,:], casting='same_kind', where=True)
+                             mode='w+', dtype=np.float64, shape=(tot_nEvts))
+np.copyto(dst=Y, src=Y_large[:tot_nEvts], casting='same_kind', where=True)
 del Y_large
 os.system('rm /data/atlas/dportill/Y_large.npy')
 
