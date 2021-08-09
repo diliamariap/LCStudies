@@ -110,20 +110,33 @@ ak_event_branches = ["cluster_nCells", "cluster_cell_ID", "cluster_cell_E", "clu
                   "nTruthPart", "truthPartPdgId", "cluster_Eta", "cluster_Phi", "trackPt", "trackP",
                   "trackMass", "trackEta", "trackPhi", "truthPartE", "cluster_ENG_CALIB_TOT", "cluster_E", "truthPartPt"]
 
-np_event_branches = ["nCluster", "eventNumber", "nTrack", "nTruthPart"]
+np_event_branches = ["mcChannelNumber","nCluster", "eventNumber", "nTrack", "nTruthPart"]
 
 geo_branches = ["cell_geo_ID", "cell_geo_eta", "cell_geo_phi", "cell_geo_rPerp", "cell_geo_sampling"]
 
 #====================
 # File setup ========
 #====================
-# Number of files
-Nfile = 2 # 502
 fileNames = []
-file_prefix = 'user.angerami.24559744.OutputStream._000'
-for i in range(1,Nfile+1):
+#pipm files
+Nfile_pipm = 1 # 502 # Number of files
+file_prefix_pipm = '/fast_scratch/atlas_images/v01-45/pipm/user.angerami.24559744.OutputStream._000'  
+for i in range(1,Nfile_pipm+1):
     endstring = f'{i:03}'
-    fileNames.append(file_prefix + endstring + '.root')
+    fileNames.append(file_prefix_pipm + endstring + '.root')
+
+
+#pi0 files
+Nfile_pi0 = Nfile_pipm  #~same number of files
+file_prefix_pi0 = '/fast_scratch/atlas_images/v01-45/pi0/user.angerami.24559740.OutputStream._000'
+for i in range(0,Nfile_pi0):
+    endstring = f'{i+11:03}'
+    fileNames.append(file_prefix_pi0 + endstring + '.root')
+    
+
+#Total number of files
+Nfile = Nfile_pipm + Nfile_pi0
+
 
 #====================
 # Load Data Files ===
@@ -138,18 +151,20 @@ geo_dict = dict_from_tree(tree=CellGeo_tree, branches=None, np_branches=geo_bran
 cell_geo_ID = geo_dict['cell_geo_ID']
 cell_ID_dict = dict(zip(cell_geo_ID, np.arange(len(cell_geo_ID))))
 
-# for event dictionary
-events_prefix = '/fast_scratch/atlas_images/v01-45/pipm/'
-
 # Use this to compare with the dimensionality of new events
 firstArray = True
 
-
 ## MEMORY MAPPED ARRAY ALLOCATION ##
-X_large = np.lib.format.open_memmap('/data/atlas/dportill/X_MemoryMapTest2_large.npz', mode='w+', dtype=np.float64,
-                       shape=(2000000,2000,6), fortran_order=False, version=None)
-Y_large = np.lib.format.open_memmap('/data/atlas/dportill/Y_MemoryMapTest2_large.npz', mode='w+', dtype=np.float64,
-                       shape=(2000000,3), fortran_order=False, version=None)
+X_large = np.lib.format.open_memmap('/data/atlas/dportill/X_large.npy', mode='w+', dtype=np.float64,
+                       shape=(1200000,1500,6), fortran_order=False, version=None)
+Y_large = np.lib.format.open_memmap('/data/atlas/dportill/Y_large.npy', mode='w+', dtype=np.float64,
+                       shape=(1200000,3), fortran_order=False, version=None)
+
+## For two files: Current size: (7497, 942, 6)
+#X_large = np.zeros(shape=(10000,2000,6), dtype=np.float64 )
+#Y_large = np.zeros(shape=(10000,3), dtype=np.float64 )
+
+
 
 k = 1 # tally used to keep track of file number
 tot_nEvts = 0 # used for keeping track of total number of events
@@ -158,9 +173,9 @@ t_tot = 0 # total time
 
 for currFile in fileNames:
     # Check for file, a few are missing
-    if not os.path.isfile(events_prefix+currFile):
+    if not os.path.isfile(currFile):
         print()
-        print('File '+events_prefix+currFile+' not found..')
+        print('File '+currFile+' not found..')
         print()
         k += 1
         continue
@@ -172,9 +187,16 @@ for currFile in fileNames:
 
     t0 = t.time()
     ## EVENT DICTIONARY ##
-    event = ur.open(events_prefix+currFile)
+    event = ur.open(currFile)
     event_tree = event["EventTree"]
     event_dict = dict_from_tree(tree=event_tree, branches=ak_event_branches, np_branches=np_event_branches)
+
+    if event_dict['mcChannelNumber'][0]== 900247:
+        print("pipm file")
+    elif event_dict['mcChannelNumber'][0]== 900246:
+        print("pi0 file")
+    else:
+        print("Error: can not associate the MC channel number to a known process")
 
     #===================
     # APPLY CUTS =======
@@ -313,6 +335,7 @@ for currFile in fileNames:
     t1 = t.time()
     array_construction_time = t1 - t0
 
+    
     #=======================#
     ## ARRAY CONCATENATION ##
     #=======================#
@@ -321,17 +344,21 @@ for currFile in fileNames:
     old_tot = tot_nEvts - max_dims[0]
     X_large[old_tot:tot_nEvts, :max_dims[1], :6] = np.ndarray.copy(X_new)
     # pad the remainder with zeros (just to be sure)
-    fill_shape = (tot_nEvts - old_tot, 2000 - max_dims[1], 6)
-    X_large[old_tot:tot_nEvts, max_dims[1]:2000, :6] = np.zeros(fill_shape)
+    fill_shape = (tot_nEvts - old_tot, 1500 - max_dims[1], 6)
+    X_large[old_tot:tot_nEvts, max_dims[1]:1500, :] = np.zeros(fill_shape)
     
     # Write to Y
-    Y_large[old_tot:tot_nEvts] = np.ndarray.copy(Y_new)
+    Y_large[old_tot:tot_nEvts,:] = np.ndarray.copy(Y_new)
         
     t1 = t.time()
     time_to_memmap = t1-t0
     thisfile_t_tot = events_cuts_time+find_create_max_dims_time+indices_time\
           +array_construction_time+time_to_memmap
     t_tot += thisfile_t_tot
+
+    #    np.savez('/data/atlas/dportill/X_large_test.npz', X_large)
+
+
     
     ##########################33
 
@@ -347,4 +374,21 @@ for currFile in fileNames:
     print('Current size: '+str((tot_nEvts,max_nPoints,6)))
     print('Total time: '+str(t_tot))
     print()
-    
+
+t0 = t.time()
+X = np.lib.format.open_memmap('/data/atlas/dportill/X_'+str(Nfile)+'_files.npy',
+                             mode='w+', dtype=np.float64, shape=(tot_nEvts, max_nPoints, 6))
+np.copyto(dst=X, src=X_large[:tot_nEvts,:max_nPoints,:], casting='same_kind', where=True)
+del X_large
+os.system('rm /data/atlas/dportill/X_large.npy')
+
+Y = np.lib.format.open_memmap('/data/atlas/dportill/Y_'+str(Nfile)+'_files.npy',
+                             mode='w+', dtype=np.float64, shape=(tot_nEvts, 3))
+np.copyto(dst=Y, src=Y_large[:tot_nEvts,:], casting='same_kind', where=True)
+del Y_large
+os.system('rm /data/atlas/dportill/Y_large.npy')
+
+t1 = t.time()
+print()
+print('Time to copy new and delete old: '+str(t1-t0)+' (s)')
+print()
