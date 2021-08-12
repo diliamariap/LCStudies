@@ -119,12 +119,11 @@ geo_branches = ["cell_geo_ID", "cell_geo_eta", "cell_geo_phi", "cell_geo_rPerp",
 #====================
 fileNames = []
 #pipm files
-Nfile_pipm = 1 # 502 # Number of files
+Nfile_pipm = 1 # 502 # Total Number of files for pipm
 file_prefix_pipm = '/fast_scratch/atlas_images/v01-45/pipm/user.angerami.24559744.OutputStream._000'  
 for i in range(1,Nfile_pipm+1):
     endstring = f'{i:03}'
     fileNames.append(file_prefix_pipm + endstring + '.root')
-
 
 #pi0 files
 Nfile_pi0 = Nfile_pipm  #~same number of files
@@ -156,9 +155,9 @@ firstArray = True
 
 ## MEMORY MAPPED ARRAY ALLOCATION ##
 X_large = np.lib.format.open_memmap('/data/atlas/dportill/X_large.npy', mode='w+', dtype=np.float64,
-                       shape=(1200000,1500,6), fortran_order=False, version=None)
+                       shape=(1700000,1500,6), fortran_order=False, version=None)
 Y_large = np.lib.format.open_memmap('/data/atlas/dportill/Y_large.npy', mode='w+', dtype=np.float64,
-                       shape=(1200000), fortran_order=False, version=None)
+                       shape=(1700000,1), fortran_order=False, version=None)
 
 ## For two files: Current size: (7497, 942, 6)
 #X_large = np.zeros(shape=(10000,2000,6), dtype=np.float64 )
@@ -266,7 +265,7 @@ for currFile in fileNames:
 
 
     # Create arrays
-    Y_new = np.zeros(max_dims[0])
+    Y_new = np.zeros((max_dims[0],1))
     X_new = np.zeros(max_dims)
     t1 = t.time()
     find_create_max_dims_time = t1 - t0    
@@ -288,7 +287,7 @@ for currFile in fileNames:
         ##############
         # set up to have no clusters, further this with setting up the same thing for tracks
         target_ENG_CALIB_TOT = -1
-        if cluster_nums is not None and Label>=0:
+        if cluster_nums is not None: # and Label>=0:
 
             # find averaged center of clusters
             cluster_Eta = event_dict['cluster_Eta'][evt].to_numpy()
@@ -317,19 +316,19 @@ for currFile in fileNames:
                 low = nClust_current_total
                 high = low + nInClust
                 X_new[i,low:high,0] = np.log(cluster_cell_E)
-                # Normalize to average cluster centers
+                # Normalize to average cluster centers (or to parent cluster center)
                 X_new[i,low:high,1] = cluster_cell_Eta - av_Eta #cluster_cell_Eta - event_dict['cluster_Eta'][evt][c]
                 X_new[i,low:high,2] = cluster_cell_Phi - av_Phi #cluster_cell_Phi -event_dict['cluster_Phi'][evt][c]
-                X_new[i,low:high,3] = cluster_cell_rPerp
-                X_new[i,low:high,5] = cluster_cell_sampling * 0.1
+                X_new[i,low:high,3] = cluster_cell_sampling * 0.1
+                X_new[i,low:high,5] = cluster_cell_rPerp 
 
                 nClust_current_total += nInClust
 
                 
-        #######################
-        ## Classification labels ##
-        #######################
-        if Label>=0:
+            ###########################
+            ## Classification labels ##
+            ###########################
+            #if Label>=0:
             Y_new[i] = Label
 
     #####################################################
@@ -349,7 +348,7 @@ for currFile in fileNames:
     X_large[old_tot:tot_nEvts, max_dims[1]:1500, :] = np.zeros(fill_shape)
     
     # Write to Y
-    Y_large[old_tot:tot_nEvts] = np.ndarray.copy(Y_new)
+    Y_large[old_tot:tot_nEvts,:] = np.ndarray.copy(Y_new)
         
     t1 = t.time()
     time_to_memmap = t1-t0
@@ -357,7 +356,6 @@ for currFile in fileNames:
           +array_construction_time+time_to_memmap
     t_tot += thisfile_t_tot
 
-    #    np.savez('/data/atlas/dportill/X_large_test.npz', X_large)
 
 
     
@@ -384,8 +382,8 @@ del X_large
 os.system('rm /data/atlas/dportill/X_large.npy')
 
 Y = np.lib.format.open_memmap('/data/atlas/dportill/Y_'+str(Nfile)+'_files.npy',
-                             mode='w+', dtype=np.float64, shape=(tot_nEvts))
-np.copyto(dst=Y, src=Y_large[:tot_nEvts], casting='same_kind', where=True)
+                             mode='w+', dtype=np.float64, shape=(tot_nEvts,1))
+np.copyto(dst=Y, src=Y_large[:tot_nEvts,:], casting='same_kind', where=True)
 del Y_large
 os.system('rm /data/atlas/dportill/Y_large.npy')
 
