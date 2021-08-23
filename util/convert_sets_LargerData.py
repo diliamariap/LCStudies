@@ -317,8 +317,8 @@ for currFile in fileNames:
                 high = low + nInClust
                 X_new[i,low:high,0] = np.log(cluster_cell_E)
                 # Normalize to average cluster centers (or to parent cluster center)
-                X_new[i,low:high,1] = cluster_cell_Eta - av_Eta #cluster_cell_Eta - event_dict['cluster_Eta'][evt][c]
-                X_new[i,low:high,2] = cluster_cell_Phi - av_Phi #cluster_cell_Phi -event_dict['cluster_Phi'][evt][c]
+                X_new[i,low:high,1] = cluster_cell_Eta - event_dict['cluster_Eta'][evt][c] #cluster_cell_Eta - av_Eta
+                X_new[i,low:high,2] = cluster_cell_Phi - event_dict['cluster_Phi'][evt][c] #cluster_cell_Phi - av_Phi
                 X_new[i,low:high,3] = cluster_cell_sampling * 0.1
                 X_new[i,low:high,5] = cluster_cell_rPerp 
 
