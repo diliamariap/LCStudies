@@ -207,7 +207,8 @@ Y_large = np.lib.format.open_memmap('/data/atlas/dportill/Y_large.npy', mode='w+
 
 k = 1 # tally used to keep track of file number
 tot_nEvts = 0 # used for keeping track of total number of events
-max_nPoints = 0 # used for keeping track of the largest 'point cloud'
+max_nPoints = 0 # used for keeping track of the largest 'point cloud' #clusters
+max_nCells = 0 # Max number of cells
 t_tot = 0 # total time
 
 for currFile in fileNames:
@@ -298,14 +299,16 @@ for currFile in fileNames:
     evt_tot = max_dims[0]
     tot_nEvts += max_dims[0]
     # keep track of the largest point cloud to use for saving later
-    if max_dims[1] > max_nPoints:
-        max_nPoints = max_dims[1]
+    if max_dims2[1] > max_nPoints:
+        max_nPoints = max_dims2[1]
+    if max_dims2[2] > max_nCells:
+        max_nCells = max_dims2[2]
 
     print("max_dims: ",max_dims) #Dilia
-    print("max_dims2: ",max_dims2) #Dilia
+    print("max_dims2: ",max_dims2) #Dilia (events, clusters, cells,6)
 
     print('* Events with selected clusters: '+str(evt_tot))
-    print('* Total number of cells: '+str(max_dims[1]))
+    print('* Max number of cells: '+str(max_nCells))
     print('* Dim of largest point cloud: '+str(max_nPoints))
 
 
