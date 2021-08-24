@@ -41,6 +41,46 @@ def find_max_dim(events, event_dict):
 
     return (nEvents, max_clust+6, 6)
 
+def find_max_dim_tuple_cluster(events, event_dict):
+    nEvents = len(events)
+    max_clust = 0   #Max number of clusters per event
+    max_cell = 0    #Max number of cells per cluster 
+    
+    for i in range(nEvents):
+        event =     events[i,0]
+        tot_clust = events[i,1]
+        clust_nums =events[i,2]
+
+        if tot_clust>max_clust:
+            max_clust=tot_clust
+
+                    
+        if i<10:
+            print("---event ",i)            #Dilia
+            print("nEvents",events[i,0])#Dilia
+            print("tot_clust",events[i,1])#Dilia
+            print("clust_nums",events[i,2])#Dilia
+            print("max_clust",max_clust)#Dilia
+
+ 
+        # Check if there are clusters, None type object may be associated with it
+        if clust_nums is not None:
+            # Search through cluster indices
+            for clst_idx in clust_nums:
+                nInClust = len(event_dict['cluster_cell_ID'][event][clst_idx])
+                if nInClust>max_cell:
+                    max_cell=nInClust
+
+                if i<10:
+                    print("-- cluster ", clst_idx)#Dilia
+                    print("- nInClust ", nInClust)#Dilia
+                    print("- max_cell ", max_cell)#Dilia
+                
+     
+    # 6 for energy, eta, phi, rperp, track flag, sample layer
+    return (nEvents, max_clust,max_cell, 6)
+    #return (nEvents, max_clust, max_cell, 6)
+
 def find_max_dim_tuple(events, event_dict):
     nEvents = len(events)
     max_clust = 0
@@ -239,25 +279,30 @@ for currFile in fileNames:
 
         ## CREATE LIST ##
         if np.count_nonzero(selection) > 0:
-            event_indices.append((evt, 0, selected_clusters))
-            if (evt % 1000==0):
+            event_indices.append((evt, len(selected_clusters), selected_clusters)) #Added the number of selected cluster per event
+            if (evt < 10):##if (evt % 1000==0):
                 print("** Event ", evt, " has ", np.count_nonzero(selection), "/" ,nClust," selected clusters")
 
     event_indices = np.array(event_indices, dtype=np.object_)
     t1 = t.time()
     indices_time = t1 - t0
 
+    print(event_indices) #Dilia
+    
     #=========================#
     ## DIMENSIONS OF X ARRAY ##
     #=========================#
     t0 = t.time()
     max_dims = find_max_dim_tuple(event_indices, event_dict)
+    max_dims2 = find_max_dim_tuple_cluster(event_indices, event_dict)
     evt_tot = max_dims[0]
     tot_nEvts += max_dims[0]
     # keep track of the largest point cloud to use for saving later
     if max_dims[1] > max_nPoints:
         max_nPoints = max_dims[1]
 
+    print("max_dims: ",max_dims) #Dilia
+    print("max_dims2: ",max_dims2) #Dilia
 
     print('* Events with selected clusters: '+str(evt_tot))
     print('* Total number of cells: '+str(max_dims[1]))
@@ -278,7 +323,7 @@ for currFile in fileNames:
     for i in range(max_dims[0]):
         # pull all relevant indices
         evt = event_indices[i,0]
-        track_idx = event_indices[i,1]
+        evt_totclust = event_indices[i,1] #not anymore a track index
         # recall this now returns an array
         cluster_nums = event_indices[i,2]
 
