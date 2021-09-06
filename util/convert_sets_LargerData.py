@@ -55,12 +55,12 @@ def find_max_dim_tuple_cluster(events, event_dict):
             max_clust=tot_clust
 
                     
-        if i<10:
-            print("---event ",i)            #Dilia
-            print("nEvents",events[i,0])#Dilia
-            print("tot_clust",events[i,1])#Dilia
-            print("clust_nums",events[i,2])#Dilia
-            print("max_clust",max_clust)#Dilia
+        #if i<10 or tot_clust>4 :
+        #    print("------ event ",i)            #Dilia
+        #    print("nEvents",events[i,0])#Dilia
+        #    print("tot_clust",events[i,1])#Dilia
+        #    print("clust_nums",events[i,2])#Dilia
+        #    print("max_clust",max_clust)#Dilia
 
  
         # Check if there are clusters, None type object may be associated with it
@@ -71,15 +71,20 @@ def find_max_dim_tuple_cluster(events, event_dict):
                 if nInClust>max_cell:
                     max_cell=nInClust
 
-                if i<10:
-                    print("-- cluster ", clst_idx)#Dilia
-                    print("- nInClust ", nInClust)#Dilia
-                    print("- max_cell ", max_cell)#Dilia
-                
+         #       if i<10 or tot_clust>4:
+         #           print(" -- cluster #", clst_idx)#Dilia
+         #           print("  - cell nInClust ", nInClust)#Dilia
+         #           print("  - max_cell ", max_cell)#Dilia
+         #           if nInClust > 6:
+         #               print("  - Big cluster with ncells:", nInClust)#Dilia
+                        
+                    
+        #if i<10 or tot_clust>4 :
+        #    print("------------------")            #Dilia
+                    
      
     # 6 for energy, eta, phi, rperp, track flag, sample layer
     return (nEvents, max_clust,max_cell, 6)
-    #return (nEvents, max_clust, max_cell, 6)
 
 def find_max_dim_tuple(events, event_dict):
     nEvents = len(events)
@@ -107,6 +112,7 @@ def find_max_dim_tuple(events, event_dict):
             max_clust = total_size
     
     # 6 for energy, eta, phi, rperp, track flag, sample layer
+    # max_clust is the maximun number of cells per event
     return (nEvents, max_clust, 6)
 
 def dict_from_tree(tree, branches=None, np_branches=None):
@@ -288,36 +294,40 @@ for currFile in fileNames:
     t1 = t.time()
     indices_time = t1 - t0
 
-    print(event_indices) #Dilia
+    print("event_indices [sel evnt idx, nclust, clust arr]:", event_indices) #Dilia
     
     #=========================#
     ## DIMENSIONS OF X ARRAY ##
     #=========================#
     t0 = t.time()
-    max_dims = find_max_dim_tuple(event_indices, event_dict)
-    max_dims2 = find_max_dim_tuple_cluster(event_indices, event_dict)
+    #max_dims = find_max_dim_tuple(event_indices, event_dict)
+    max_dims = find_max_dim_tuple_cluster(event_indices, event_dict)
     evt_tot = max_dims[0]
     tot_nEvts += max_dims[0]
     # keep track of the largest point cloud to use for saving later
-    if max_dims2[1] > max_nPoints:
-        max_nPoints = max_dims2[1]
-    if max_dims2[2] > max_nCells:
-        max_nCells = max_dims2[2]
+    if max_dims[1] > max_nPoints:
+        max_nPoints = max_dims[1]   
+    if max_dims[2] > max_nCells:
+        max_nCells = max_dims[2]   
 
-    print("max_dims: ",max_dims) #Dilia
-    print("max_dims2: ",max_dims2) #Dilia (events, clusters, cells,6)
-
-    print('* Events with selected clusters: '+str(evt_tot))
-    print('* Max number of cells: '+str(max_nCells))
-    print('* Dim of largest point cloud: '+str(max_nPoints))
-
+    print('Events with selected clusters: '+str(evt_tot))
+    print("max_dims for this file: ",max_dims) #Dilia (events, clusters, cells,6)
 
     # Create arrays
-    Y_new = np.zeros((max_dims[0],1))
-    X_new = np.zeros(max_dims)
+    Y_new = np.zeros((max_dims[0],max_dims[1])) #(events,clusters)
+    X_new = np.zeros(max_dims)                  #(events,clusters,cells,features)
     t1 = t.time()
-    find_create_max_dims_time = t1 - t0    
+    find_create_max_dims_time = t1 - t0
 
+    print("X shape: ",X_new.shape) #Dilia (events, clusters, cells,6)
+    print("Y shape: ",Y_new.shape)  #Dilia (events, clusters)
+
+    print('* Processed events: '+str(tot_nEvts))    
+    print('* Max number of clusters per event: '+str(max_nPoints))#Dim of largest point cloud
+    print('* Max number of cells per cluster: '+str(max_nCells))
+
+
+    print(" ************* FILLING ************* " )
 
     #===================#
     ## FILL IN ENTRIES ##==============================================================
@@ -330,12 +340,19 @@ for currFile in fileNames:
         # recall this now returns an array
         cluster_nums = event_indices[i,2]
 
+        if i<10:                                                          #Dilia
+            print("------ event ",i)                                      #Dilia
+            print(" evt = event_indices[i,0]: ", evt)                     #Dilia
+            print(" totclust = event_indices[i,1]: ", evt_totclust)       #Dilia
+            print(" cluster_nums = event_indices[i,2]: ",cluster_nums )   #Dilia
+            #            print(" : ", )                                   #Dilia
+        
         ##############
         ## CLUSTERS ##
         ##############
         # set up to have no clusters, further this with setting up the same thing for tracks
         target_ENG_CALIB_TOT = -1
-        if cluster_nums is not None: # and Label>=0:
+        if cluster_nums is not None: 
 
             # find averaged center of clusters
             cluster_Eta = event_dict['cluster_Eta'][evt].to_numpy()
@@ -359,18 +376,28 @@ for currFile in fileNames:
                 cluster_cell_rPerp = geo_dict['cell_geo_rPerp'][cell_indices]
                 cluster_cell_sampling = geo_dict['cell_geo_sampling'][cell_indices]
 
-                # input all the data
-                # note here we leave the fourth entry zeros (zero for flag!!!)
-                low = nClust_current_total
-                high = low + nInClust
-                X_new[i,low:high,0] = np.log(cluster_cell_E)
-                # Normalize to average cluster centers (or to parent cluster center)
-                X_new[i,low:high,1] = cluster_cell_Eta - event_dict['cluster_Eta'][evt][c] #cluster_cell_Eta - av_Eta
-                X_new[i,low:high,2] = cluster_cell_Phi - event_dict['cluster_Phi'][evt][c] #cluster_cell_Phi - av_Phi
-                X_new[i,low:high,3] = cluster_cell_sampling * 0.1
-                X_new[i,low:high,5] = cluster_cell_rPerp 
 
-                nClust_current_total += nInClust
+                ## input all the data
+                X_new[i,c,0:len(cluster_cell_E),0]= np.log(cluster_cell_E)
+
+                if i<10:
+                    print(" --- cluster : ", c) 
+                    print(" - X_new[i,c]", X_new[i,c].shape)
+                    print(" - nInClust", nInClust)
+                    print(" - len(cluster_cell_E) : ", len(cluster_cell_E) )       #Dilia
+
+                ### Before: X: (events , cells, features)
+                ## note here we leave the fourth entry zeros (zero for flag!!!)
+                #low = nClust_current_total
+                #high = low + nInClust
+                #X_new[i,low:high,0] = np.log(cluster_cell_E)
+                ## Normalize to average cluster centers (or to parent cluster center)
+                #X_new[i,low:high,1] = cluster_cell_Eta - event_dict['cluster_Eta'][evt][c] #cluster_cell_Eta - av_Eta
+                #X_new[i,low:high,2] = cluster_cell_Phi - event_dict['cluster_Phi'][evt][c] #cluster_cell_Phi - av_Phi
+                #X_new[i,low:high,3] = cluster_cell_sampling * 0.1
+                #X_new[i,low:high,5] = cluster_cell_rPerp 
+                #
+                #nClust_current_total += nInClust
 
                 
             ###########################
@@ -383,7 +410,7 @@ for currFile in fileNames:
     t1 = t.time()
     array_construction_time = t1 - t0
 
-    
+    """
     #=======================#
     ## ARRAY CONCATENATION ##
     #=======================#
@@ -439,3 +466,4 @@ t1 = t.time()
 print()
 print('Time to copy new and delete old: '+str(t1-t0)+' (s)')
 print()
+"""
