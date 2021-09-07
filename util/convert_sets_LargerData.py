@@ -340,7 +340,7 @@ for currFile in fileNames:
         # recall this now returns an array
         cluster_nums = event_indices[i,2]
 
-        if i<10:                                                          #Dilia
+        if i<2:                                                          #Dilia
             print("------ event ",i)                                      #Dilia
             print(" evt = event_indices[i,0]: ", evt)                     #Dilia
             print(" totclust = event_indices[i,1]: ", evt_totclust)       #Dilia
@@ -363,6 +363,8 @@ for currFile in fileNames:
             nClust_current_total = 0
             target_ENG_CALIB_TOT = 0
 
+            clustindx = 0
+            
             for c in cluster_nums:            
                 # cluster data
                 target_ENG_CALIB_TOT += event_dict['cluster_ENG_CALIB_TOT'][evt][c]
@@ -378,33 +380,33 @@ for currFile in fileNames:
 
 
                 ## input all the data
-                X_new[i,c,0:len(cluster_cell_E),0]= np.log(cluster_cell_E)
-
-                if i<10:
-                    print(" --- cluster : ", c) 
-                    print(" - X_new[i,c]", X_new[i,c].shape)
-                    print(" - nInClust", nInClust)
-                    print(" - len(cluster_cell_E) : ", len(cluster_cell_E) )       #Dilia
-
-                ### Before: X: (events , cells, features)
-                ## note here we leave the fourth entry zeros (zero for flag!!!)
-                #low = nClust_current_total
-                #high = low + nInClust
-                #X_new[i,low:high,0] = np.log(cluster_cell_E)
-                ## Normalize to average cluster centers (or to parent cluster center)
-                #X_new[i,low:high,1] = cluster_cell_Eta - event_dict['cluster_Eta'][evt][c] #cluster_cell_Eta - av_Eta
-                #X_new[i,low:high,2] = cluster_cell_Phi - event_dict['cluster_Phi'][evt][c] #cluster_cell_Phi - av_Phi
-                #X_new[i,low:high,3] = cluster_cell_sampling * 0.1
-                #X_new[i,low:high,5] = cluster_cell_rPerp 
-                #
-                #nClust_current_total += nInClust
+                X_new[i,clustindx,:nInClust,0] = np.log(cluster_cell_E)
+                ## Normalize to  parent cluster center
+                X_new[i,clustindx,:nInClust,1] = cluster_cell_Eta - event_dict['cluster_Eta'][evt][c] #cluster_cell_Eta - av_Eta
+                X_new[i,clustindx,:nInClust,2] = cluster_cell_Phi - event_dict['cluster_Phi'][evt][c] #cluster_cell_Phi - av_Phi
+                X_new[i,clustindx,:nInClust,3] = cluster_cell_sampling * 0.1
+                X_new[i,clustindx,:nInClust,5] = cluster_cell_rPerp 
 
                 
-            ###########################
-            ## Classification labels ##
-            ###########################
-            #if Label>=0:
-            Y_new[i] = Label
+                ###########################
+                ## Classification labels ##
+                ###########################
+                #if Label>=0:
+                Y_new[i,clustindx] = Label
+
+                if i<2:
+                    print(" --- cluster : ", c)
+                    print(" -clustindx : ", clustindx) 
+                    print(" - nInClust", nInClust)
+                    print(" - len(cluster_cell_E) : ", len(cluster_cell_E) )       #Dilia
+                    print(" -shape X_new[i,clustindx,:nInClust,1]", X_new[i,clustindx,:nInClust,0].shape)
+                    print()
+                    print()
+                    print(Y_new[i])
+                    print()
+                    print()
+
+                clustindx = clustindx +1
 
     #####################################################
     t1 = t.time()
